@@ -1,0 +1,71 @@
+# Declarative Governance Checkpoint Specification
+version: "1.0.0"
+spec_type: "MultiDatabaseActiveGovernance"
+
+# 1. Connected Target Databases
+targets:
+  - id: "atlan_catalog"
+    connector: "atlan"
+    type: "CATALOG"
+    description: "Atlan Active Metadata Catalog"
+
+  - id: "postgres_primary"
+    connector: "postgres"
+    type: "RELATIONAL"
+    description: "Production Postgres Relational Data Warehouse"
+
+  - id: "mongo_profiles"
+    connector: "mongodb"
+    type: "NOSQL"
+    description: "Customer Document & Profile Store"
+
+  - id: "chroma_rag"
+    connector: "chroma"
+    type: "VECTOR"
+    description: "Enterprise Knowledge Base & Support Vector Store"
+
+# 2. Automated Privacy & Sensitivity Checkpoints
+checkpoints:
+  - checkpoint_id: "CHK-PII-001"
+    name: "Cross-Database PII & Sensitive Column Protection"
+    severity: "HIGH"
+    rules:
+      - rule_id: "RULE_EMAIL_PII"
+        pattern: "(?i).*(email|mail).*"
+        classification: "PII"
+        enforce_masking: true
+        confidence_threshold: 0.90
+
+      - rule_id: "RULE_SSN_PII"
+        pattern: "(?i).*(ssn|social_sec|tax_id).*"
+        classification: "PII"
+        enforce_masking: true
+        confidence_threshold: 0.95
+
+      - rule_id: "RULE_PCI_CARD"
+        pattern: "(?i).*(card|credit|cvv|pan).*"
+        classification: "PCI"
+        enforce_masking: true
+        confidence_threshold: 0.95
+
+      - rule_id: "RULE_FINANCIAL_REV"
+        pattern: "(?i).*(rev|revenue|salary|wage|balance|order_total).*"
+        classification: "FINANCIAL"
+        enforce_masking: false
+        confidence_threshold: 0.85
+
+      - rule_id: "RULE_PHONE_PII"
+        pattern: "(?i).*(phone|mobile|cell|contact).*"
+        classification: "PII"
+        enforce_masking: true
+        confidence_threshold: 0.90
+
+# 3. Metadata Quality & Documentation Checkpoints
+metadata_policies:
+  - policy_id: "POL-DESC-001"
+    name: "Enforce Business Descriptions via Semantic Glossary"
+    auto_heal: true
+
+  - policy_id: "POL-OWNER-001"
+    name: "Enforce Domain Stewardship"
+    auto_heal: true
