@@ -270,6 +270,17 @@ async def get_audit_trail():
     }
 
 
+@app.get("/api/v1/traces", tags=["Governance Operations"])
+async def get_observability_traces():
+    """Returns the live Arize Phoenix OpenTelemetry traces recorded in the engine."""
+    traces = phoenix_tracer.get_all_traces()
+    return {
+        "total_traces": len(traces),
+        "phoenix_url": "http://localhost:6006",
+        "traces": traces[-25:]
+    }
+
+
 @app.get("/", response_class=HTMLResponse, tags=["Visual Dashboard"])
 async def visual_dashboard():
     """Renders the Enterprise Self-Healing Governance & MCP Orchestration Dashboard."""
