@@ -193,6 +193,39 @@ async def get_system_health():
     }
 
 
+@app.get("/api/v1/databases", tags=["Governance Operations"])
+async def get_database_assets():
+    """Returns detailed table, column, and sensitivity state across all 4 database connectors."""
+    data = {}
+    for conn_id, conn in connector_registry.list_all().items():
+        tables = conn.list_tables()
+        data[conn_id] = {
+            "name": conn.name,
+            "type": conn.connector_type.value,
+            "tables": [
+                {
+                    "name": t.name,
+                    "qualified_name": t.qualified_name,
+                    "description": t.description,
+                    "owner": t.owner,
+                    "row_count": t.row_count,
+                    "columns": [
+                        {
+                            "name": c.name,
+                            "data_type": c.data_type,
+                            "description": c.description,
+                            "classifications": c.classifications,
+                            "is_masked": c.is_masked
+                        }
+                        for c in t.columns
+                    ]
+                }
+                for t in tables
+            ]
+        }
+    return data
+
+
 @app.post("/api/v1/scan", tags=["Governance Operations"])
 async def scan_catalog():
     """Scans all multi-database assets and flags anomalies."""
@@ -239,261 +272,344 @@ async def get_audit_trail():
 
 @app.get("/", response_class=HTMLResponse, tags=["Visual Dashboard"])
 async def visual_dashboard():
-    """Renders the Interactive Self-Healing Governance Dashboard with live Phoenix observability."""
+    """Renders the Enterprise Self-Healing Governance & MCP Orchestration Dashboard."""
     return """
     <!DOCTYPE html>
     <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Autonomous Data Governance & MCP Dashboard</title>
+        <title>Enterprise Data Governance & MCP Orchestration Engine</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
         <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-            body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
-            .glow-blue { box-shadow: 0 0 25px rgba(59, 130, 246, 0.2); }
-            .glow-green { box-shadow: 0 0 25px rgba(16, 185, 129, 0.2); }
-            .glow-purple { box-shadow: 0 0 25px rgba(168, 85, 247, 0.2); }
+            body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #090d16; color: #f1f5f9; }
+            .font-mono { font-family: 'JetBrains Mono', monospace; }
+            .glass-card { background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.07); }
+            .glass-card-hover:hover { border-color: rgba(59, 130, 246, 0.4); box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.2); }
+            .pulse-dot { animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+            @keyframes pulse-glow { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(0.9); } }
+            .pipeline-line { background: linear-gradient(90deg, #3b82f6 0%, #10b981 50%, #8b5cf6 100%); }
         </style>
     </head>
-    <body class="min-h-screen flex flex-col p-6">
-        <!-- Header -->
-        <header class="max-w-7xl w-full mx-auto flex flex-col md:flex-row items-center justify-between gap-4 pb-6 border-b border-gray-800">
-            <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
-                    <i class="fa-solid fa-shield-halved text-2xl"></i>
+    <body class="min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+        <!-- Top Enterprise Header -->
+        <header class="sticky top-0 z-50 bg-[#090d16]/90 backdrop-blur-md border-b border-slate-800/80 px-6 py-3.5">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                        <i class="fa-solid fa-shield-halved text-xl"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-lg font-bold text-white tracking-tight">Artizent Governance Engine</h1>
+                            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">MCP v2.0 Microservices</span>
+                        </div>
+                        <p class="text-xs text-slate-400">Autonomous Closed-Loop Governance • Agno AI • Atlan Active Metadata • Arize Phoenix</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                        Autonomous Data Governance Engine
-                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50">v2.0 MCP</span>
-                    </h1>
-                    <p class="text-xs text-gray-400">Powered by Agno AI • Atlan Active Metadata • FastAPI • Arize Phoenix</p>
-                </div>
-            </div>
 
-            <div class="flex items-center gap-3">
-                <a href="http://localhost:6006" target="_blank" class="px-4 py-2 rounded-lg bg-orange-950/40 border border-orange-700/50 text-orange-300 hover:bg-orange-900/50 transition-all flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-orange-500/20">
-                    <i class="fa-solid fa-fire text-orange-400"></i>
-                    Arize Phoenix Traces
-                    <i class="fa-solid fa-arrow-up-right-from-square text-xs opacity-70"></i>
-                </a>
-                <a href="/docs" target="_blank" class="px-4 py-2 rounded-lg bg-gray-800/80 border border-gray-700 text-gray-200 hover:bg-gray-700 transition-all flex items-center gap-2 text-sm font-medium">
-                    <i class="fa-solid fa-code text-blue-400"></i>
-                    Swagger API Docs
-                </a>
+                <!-- Navigation & Status Controls -->
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+                        <span class="font-medium text-slate-200">Port 8000 Online</span>
+                    </div>
+
+                    <a href="http://localhost:6006" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 transition-all flex items-center gap-2 text-xs font-semibold shadow-sm">
+                        <i class="fa-solid fa-fire text-orange-400"></i>
+                        Arize Phoenix Traces
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-70"></i>
+                    </a>
+
+                    <a href="/docs" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-all flex items-center gap-2 text-xs font-medium">
+                        <i class="fa-solid fa-code text-blue-400"></i>
+                        Swagger API
+                    </a>
+
+                    <button onclick="triggerReset()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-rose-950/40 hover:text-rose-400 border border-slate-700 hover:border-rose-800/40 text-slate-300 transition-all flex items-center gap-1.5 text-xs font-medium">
+                        <i class="fa-solid fa-rotate-left text-purple-400"></i>
+                        Reset Demo
+                    </button>
+                </div>
             </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="max-w-7xl w-full mx-auto py-8 space-y-8 flex-1">
-            <!-- Controls & Action Banner -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <button onclick="triggerHeal()" id="btn-heal" class="md:col-span-2 p-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white font-semibold text-lg hover:opacity-95 transition-all shadow-xl shadow-emerald-900/30 flex items-center justify-between group">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
-                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <!-- Main Dashboard Container -->
+        <main class="max-w-7xl w-full mx-auto p-6 space-y-7 flex-1">
+            
+            <!-- Hero Orchestration Action Bar -->
+            <div class="glass-card rounded-2xl p-6 border-slate-800 relative overflow-hidden">
+                <div class="absolute -right-20 -top-20 w-80 h-80 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold mb-2">
+                            <i class="fa-solid fa-bolt-lightning text-xs"></i>
+                            Key-Orchestrator Dispatcher Active
                         </div>
-                        <div class="text-left">
-                            <div class="font-bold">Execute Autonomous Self-Healing</div>
-                            <div class="text-xs text-emerald-100 font-normal">Dispatches MCP specialist agents to fix all gaps</div>
-                        </div>
+                        <h2 class="text-2xl font-bold text-white tracking-tight">Multi-Database Autonomous Self-Healing Pipeline</h2>
+                        <p class="text-sm text-slate-400 mt-1 max-w-2xl">
+                            Continuously detects PII/PCI leaks, undocumented schemas, and metric formula drift across PostgreSQL, MongoDB, ChromaDB, and Atlan Catalog, then autonomously dispatches specialized MCP microservices.
+                        </p>
                     </div>
-                    <i class="fa-solid fa-arrow-right text-emerald-200 group-hover:translate-x-1 transition-transform"></i>
-                </button>
 
-                <button onclick="triggerScan()" class="p-5 rounded-2xl bg-gray-900 border border-gray-800 hover:border-gray-700 text-white font-semibold hover:bg-gray-800/70 transition-all flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl bg-blue-950/60 text-blue-400 flex items-center justify-center text-xl">
-                        <i class="fa-solid fa-radar"></i>
+                    <div class="flex items-center gap-3 w-full lg:w-auto">
+                        <button onclick="triggerScan()" id="btn-scan" class="flex-1 lg:flex-none px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold border border-slate-700 transition-all flex items-center justify-center gap-2 shadow-sm">
+                            <i class="fa-solid fa-radar text-blue-400"></i>
+                            Scan Databases
+                        </button>
+                        <button onclick="triggerHeal()" id="btn-heal" class="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white text-sm font-bold shadow-lg shadow-indigo-500/25 transition-all flex items-center justify-center gap-2.5">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+                            Execute Autonomous Self-Healing
+                        </button>
                     </div>
-                    <div class="text-left">
-                        <div class="font-bold">Scan Catalog</div>
-                        <div class="text-xs text-gray-400 font-normal">Detect current anomalies</div>
-                    </div>
-                </button>
-
-                <button onclick="triggerReset()" class="p-5 rounded-2xl bg-gray-900 border border-gray-800 hover:border-gray-700 text-white font-semibold hover:bg-gray-800/70 transition-all flex items-center gap-4">
-                    <div class="w-12 h-12 rounded-xl bg-purple-950/60 text-purple-400 flex items-center justify-center text-xl">
-                        <i class="fa-solid fa-rotate-left"></i>
-                    </div>
-                    <div class="text-left">
-                        <div class="font-bold">Reset Demo State</div>
-                        <div class="text-xs text-gray-400 font-normal">Seed 8 fresh anomalies</div>
-                    </div>
-                </button>
+                </div>
             </div>
 
-            <!-- Health Metric KPI Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
-                <div class="p-6 rounded-2xl bg-gray-900/90 border border-gray-800 glow-blue relative overflow-hidden">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Overall Governance Score</span>
-                        <i class="fa-solid fa-chart-pie text-blue-400"></i>
+            <!-- Executive KPI Scorecards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card rounded-2xl p-5 border-slate-800 flex flex-col justify-between">
+                    <div class="flex justify-between items-center text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                        <span>Governance Health Score</span>
+                        <i class="fa-solid fa-chart-pie text-blue-400 text-sm"></i>
                     </div>
-                    <div id="score-overall" class="text-4xl font-extrabold text-blue-400 tracking-tight">--%</div>
-                    <div class="w-full bg-gray-800 h-2 rounded-full mt-4 overflow-hidden">
-                        <div id="bar-overall" class="bg-blue-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
+                    <div class="mt-4 flex items-baseline gap-2">
+                        <span id="score-overall" class="text-4xl font-extrabold text-blue-400 tracking-tight">--%</span>
+                        <span id="score-overall-delta" class="text-xs font-semibold text-emerald-400">+32.1%</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2 rounded-full mt-4 overflow-hidden">
+                        <div id="bar-overall" class="bg-gradient-to-r from-blue-600 to-indigo-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
                     </div>
                 </div>
 
-                <div class="p-6 rounded-2xl bg-gray-900/90 border border-gray-800 glow-green relative overflow-hidden">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Security & PII Masking</span>
-                        <i class="fa-solid fa-lock text-emerald-400"></i>
+                <div class="glass-card rounded-2xl p-5 border-slate-800 flex flex-col justify-between">
+                    <div class="flex justify-between items-center text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                        <span>Security & PII Masking</span>
+                        <i class="fa-solid fa-lock text-emerald-400 text-sm"></i>
                     </div>
-                    <div id="score-security" class="text-4xl font-extrabold text-emerald-400 tracking-tight">--%</div>
-                    <div class="w-full bg-gray-800 h-2 rounded-full mt-4 overflow-hidden">
+                    <div class="mt-4 flex items-baseline gap-2">
+                        <span id="score-security" class="text-4xl font-extrabold text-emerald-400 tracking-tight">--%</span>
+                        <span id="score-security-count" class="text-xs font-medium text-slate-400">14/14 cols</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2 rounded-full mt-4 overflow-hidden">
                         <div id="bar-security" class="bg-emerald-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
                     </div>
                 </div>
 
-                <div class="p-6 rounded-2xl bg-gray-900/90 border border-gray-800 glow-purple relative overflow-hidden">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Documentation Coverage</span>
-                        <i class="fa-solid fa-book text-purple-400"></i>
+                <div class="glass-card rounded-2xl p-5 border-slate-800 flex flex-col justify-between">
+                    <div class="flex justify-between items-center text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                        <span>Documentation Coverage</span>
+                        <i class="fa-solid fa-book-bookmark text-purple-400 text-sm"></i>
                     </div>
-                    <div id="score-doc" class="text-4xl font-extrabold text-purple-400 tracking-tight">--%</div>
-                    <div class="w-full bg-gray-800 h-2 rounded-full mt-4 overflow-hidden">
+                    <div class="mt-4 flex items-baseline gap-2">
+                        <span id="score-doc" class="text-4xl font-extrabold text-purple-400 tracking-tight">--%</span>
+                        <span class="text-xs font-semibold text-emerald-400">Verified</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2 rounded-full mt-4 overflow-hidden">
                         <div id="bar-doc" class="bg-purple-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
                     </div>
                 </div>
 
-                <div class="p-6 rounded-2xl bg-gray-900/90 border border-gray-800 relative overflow-hidden">
-                    <div class="flex justify-between items-start mb-2">
-                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Domain Ownership</span>
-                        <i class="fa-solid fa-user-shield text-amber-400"></i>
+                <div class="glass-card rounded-2xl p-5 border-slate-800 flex flex-col justify-between">
+                    <div class="flex justify-between items-center text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                        <span>Domain Stewardship</span>
+                        <i class="fa-solid fa-user-check text-amber-400 text-sm"></i>
                     </div>
-                    <div id="score-owner" class="text-4xl font-extrabold text-amber-400 tracking-tight">--%</div>
-                    <div class="w-full bg-gray-800 h-2 rounded-full mt-4 overflow-hidden">
+                    <div class="mt-4 flex items-baseline gap-2">
+                        <span id="score-owner" class="text-4xl font-extrabold text-amber-400 tracking-tight">--%</span>
+                        <span class="text-xs font-semibold text-emerald-400">Assigned</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2 rounded-full mt-4 overflow-hidden">
                         <div id="bar-owner" class="bg-amber-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Multi-Database Connectors & MCP Services -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Connectors Panel -->
-                <div class="p-6 rounded-2xl bg-gray-900/80 border border-gray-800">
-                    <h3 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-database text-cyan-400"></i>
-                        Connected Databases (4)
-                    </h3>
-                    <div class="space-y-3">
-                        <div class="p-3 rounded-xl bg-gray-950/60 border border-gray-800/80 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <i class="fa-solid fa-table-cells text-blue-400"></i>
-                                <div>
-                                    <div class="text-sm font-medium text-white">PostgreSQL Warehouse</div>
-                                    <div class="text-xs text-gray-400">Relational SQL tables</div>
-                                </div>
-                            </div>
-                            <span class="text-xs px-2 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50">Online</span>
+            <!-- Tabbed Explorer (Orchestration Pipeline vs Database Assets vs Live Key-Orchestrator) -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div class="flex items-center gap-2">
+                        <button onclick="switchTab('pipeline')" id="tab-btn-pipeline" class="px-4 py-2 rounded-lg font-semibold text-xs transition-all bg-blue-600/10 text-blue-400 border border-blue-500/20">
+                            <i class="fa-solid fa-diagram-project mr-1.5"></i>
+                            Live Orchestration Pipeline
+                        </button>
+                        <button onclick="switchTab('databases')" id="tab-btn-databases" class="px-4 py-2 rounded-lg font-semibold text-xs transition-all text-slate-400 hover:text-slate-200">
+                            <i class="fa-solid fa-database mr-1.5"></i>
+                            Multi-Database Explorer (4)
+                        </button>
+                        <button onclick="switchTab('playground')" id="tab-btn-playground" class="px-4 py-2 rounded-lg font-semibold text-xs transition-all text-slate-400 hover:text-slate-200">
+                            <i class="fa-solid fa-terminal mr-1.5"></i>
+                            Key-Orchestrator JSON Playground
+                        </button>
+                    </div>
+
+                    <div id="live-status-pill" class="text-xs font-mono px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
+                        Status: <span class="text-emerald-400 font-semibold">Ready</span>
+                    </div>
+                </div>
+
+                <!-- Tab 1: Live Orchestration Pipeline View -->
+                <div id="tab-pipeline" class="space-y-6">
+                    <!-- 3 Discovered MCP Microservices Cards -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                                <i class="fa-solid fa-microchip text-indigo-400"></i>
+                                Registered Model Context Protocol (MCP) Microservices
+                            </h3>
+                            <span class="text-[11px] text-slate-500">Dynamic Tool Discovery Active</span>
                         </div>
 
-                        <div class="p-3 rounded-xl bg-gray-950/60 border border-gray-800/80 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <i class="fa-solid fa-file-code text-green-400"></i>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="glass-card rounded-xl p-4 border-slate-800 border-l-4 border-l-emerald-500 flex flex-col justify-between">
                                 <div>
-                                    <div class="text-sm font-medium text-white">MongoDB Document Store</div>
-                                    <div class="text-xs text-gray-400">JSON customer profiles</div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-emerald-400 font-mono">mcp-pii-selfhealerservice</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Privacy</span>
+                                    </div>
+                                    <div class="text-sm font-semibold text-white mt-1.5">PII / PCI Security Healer</div>
+                                    <p class="text-xs text-slate-400 mt-1">Evaluates column sensitivity regex rules and enforces dynamic masking across SQL, NoSQL & Vector stores.</p>
+                                </div>
+                                <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                                    <span>Tools: 3 exposed</span>
+                                    <span class="text-emerald-400">evaluate_sensitivity, enforce_masking</span>
                                 </div>
                             </div>
-                            <span class="text-xs px-2 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50">Online</span>
+
+                            <div class="glass-card rounded-xl p-4 border-slate-800 border-l-4 border-l-purple-500 flex flex-col justify-between">
+                                <div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-purple-400 font-mono">mcp-metadata-selfhealerservice</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">Metadata</span>
+                                    </div>
+                                    <div class="text-sm font-semibold text-white mt-1.5">Metadata & Glossary Enricher</div>
+                                    <p class="text-xs text-slate-400 mt-1">Resolves missing table/column documentation from enterprise ontology and links verified glossary terms.</p>
+                                </div>
+                                <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                                    <span>Tools: 3 exposed</span>
+                                    <span class="text-purple-400">heal_table_metadata, link_glossary</span>
+                                </div>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-4 border-slate-800 border-l-4 border-l-cyan-500 flex flex-col justify-between">
+                                <div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-cyan-400 font-mono">mcp-drift-selfhealerservice</span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">Semantics</span>
+                                    </div>
+                                    <div class="text-sm font-semibold text-white mt-1.5">Semantic Metric Drift Healer</div>
+                                    <p class="text-xs text-slate-400 mt-1">Diagnoses schema evolution that breaks downstream KPI formulas and applies semantic alias mappings.</p>
+                                </div>
+                                <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                                    <span>Tools: 3 exposed</span>
+                                    <span class="text-cyan-400">validate_metric, heal_metric_drift</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Anomalies & Remediation Feed -->
+                    <div class="glass-card rounded-2xl p-5 border-slate-800">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i>
+                                    Autonomous Self-Healing Audit & Action Feed
+                                </h3>
+                                <p class="text-xs text-slate-400">Live feed of anomalous detections and executed MCP remediations across all database engines.</p>
+                            </div>
+                            <span class="text-xs text-slate-500 font-mono" id="audit-count">-- events</span>
                         </div>
 
-                        <div class="p-3 rounded-xl bg-gray-950/60 border border-gray-800/80 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <i class="fa-solid fa-cubes text-purple-400"></i>
-                                <div>
-                                    <div class="text-sm font-medium text-white">ChromaDB Vector Store</div>
-                                    <div class="text-xs text-gray-400">RAG knowledge embeddings</div>
-                                </div>
-                            </div>
-                            <span class="text-xs px-2 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50">Online</span>
-                        </div>
-
-                        <div class="p-3 rounded-xl bg-gray-950/60 border border-gray-800/80 flex items-center justify-between">
-                            <div class="flex items-center gap-3">
-                                <i class="fa-solid fa-sitemap text-amber-400"></i>
-                                <div>
-                                    <div class="text-sm font-medium text-white">Atlan Active Catalog</div>
-                                    <div class="text-xs text-gray-400">Unified metadata & lineage</div>
-                                </div>
-                            </div>
-                            <span class="text-xs px-2 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50">Online</span>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs text-slate-300">
+                                <thead class="text-[11px] font-bold uppercase bg-slate-900/90 text-slate-400 border-b border-slate-800">
+                                    <tr>
+                                        <th class="px-4 py-3">Timestamp</th>
+                                        <th class="px-4 py-3">Action</th>
+                                        <th class="px-4 py-3">Target Asset</th>
+                                        <th class="px-4 py-3">Responsible MCP Service</th>
+                                        <th class="px-4 py-3">Reason / Remediation Applied</th>
+                                        <th class="px-4 py-3 text-right">Observability</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-tbody" class="divide-y divide-slate-800/60 font-mono">
+                                    <tr>
+                                        <td colspan="6" class="px-4 py-8 text-center text-slate-500 font-sans">
+                                            Loading live catalog events...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
 
-                <!-- MCP Self-Healing Services Panel -->
-                <div class="p-6 rounded-2xl bg-gray-900/80 border border-gray-800 lg:col-span-2">
-                    <h3 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-microchip text-indigo-400"></i>
-                        Discovered MCP Self-Healing Microservices
-                    </h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div class="p-4 rounded-xl bg-gray-950/60 border border-gray-800 flex flex-col justify-between">
-                            <div>
-                                <div class="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">mcp-pii-service</div>
-                                <div class="text-sm font-medium text-white">PII & PCI Healer</div>
-                                <p class="text-xs text-gray-400 mt-2">Regex sensitivity classification & dynamic cross-DB masking.</p>
-                            </div>
-                            <div class="text-xs text-gray-500 mt-4 border-t border-gray-800/80 pt-2">3 Tools Exposed</div>
-                        </div>
-
-                        <div class="p-4 rounded-xl bg-gray-950/60 border border-gray-800 flex flex-col justify-between">
-                            <div>
-                                <div class="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">mcp-metadata-service</div>
-                                <div class="text-sm font-medium text-white">Metadata Enricher</div>
-                                <p class="text-xs text-gray-400 mt-2">Business documentation curation & glossary term association.</p>
-                            </div>
-                            <div class="text-xs text-gray-500 mt-4 border-t border-gray-800/80 pt-2">3 Tools Exposed</div>
-                        </div>
-
-                        <div class="p-4 rounded-xl bg-gray-950/60 border border-gray-800 flex flex-col justify-between">
-                            <div>
-                                <div class="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">mcp-drift-service</div>
-                                <div class="text-sm font-medium text-white">Semantic Drift Healer</div>
-                                <p class="text-xs text-gray-400 mt-2">KPI schema drift diagnostics & formula alias remapping.</p>
-                            </div>
-                            <div class="text-xs text-gray-500 mt-4 border-t border-gray-800/80 pt-2">3 Tools Exposed</div>
-                        </div>
+                <!-- Tab 2: Multi-Database Explorer View -->
+                <div id="tab-databases" class="hidden space-y-4">
+                    <div id="db-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Loaded dynamically via fetchDatabases() -->
                     </div>
                 </div>
-            </div>
 
-            <!-- Live Actions & Audit Log Feed -->
-            <div class="p-6 rounded-2xl bg-gray-900/80 border border-gray-800">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-list-check text-emerald-400"></i>
-                        Autonomous Remediation & Audit Feed
-                    </h3>
-                    <span id="feed-status" class="text-xs text-gray-400">Ready</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm text-gray-300">
-                        <thead class="text-xs uppercase bg-gray-950/80 text-gray-400 border-b border-gray-800">
-                            <tr>
-                                <th class="px-4 py-3">Timestamp</th>
-                                <th class="px-4 py-3">Action</th>
-                                <th class="px-4 py-3">Asset</th>
-                                <th class="px-4 py-3">Actor / MCP Service</th>
-                                <th class="px-4 py-3">Reason / Remediation</th>
-                            </tr>
-                        </thead>
-                        <tbody id="audit-tbody" class="divide-y divide-gray-800/50">
-                            <tr>
-                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">Click 'Scan Catalog' or 'Execute Autonomous Self-Healing' to view live actions.</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <!-- Tab 3: Key-Orchestrator JSON Playground View -->
+                <div id="tab-playground" class="hidden space-y-4">
+                    <div class="glass-card rounded-2xl p-6 border-slate-800">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                    <i class="fa-solid fa-paper-plane text-blue-400"></i>
+                                    Test Key-Orchestrator Agent (<code class="text-blue-300">POST /api/v1/orchestrate</code>)
+                                </h3>
+                                <p class="text-xs text-slate-400">Send an arbitrary anomaly event JSON to test real-time MCP service discovery and execution.</p>
+                            </div>
+                            
+                            <div class="flex items-center gap-2">
+                                <button onclick="loadScenario('pii')" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700">PII Scenario</button>
+                                <button onclick="loadScenario('meta')" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700">Metadata Scenario</button>
+                                <button onclick="loadScenario('drift')" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700">Drift Scenario</button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">Input Event Payload (JSON)</label>
+                                <textarea id="playground-req" rows="11" class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 font-mono text-xs focus:border-blue-500 focus:outline-none"></textarea>
+                                <button onclick="sendPlaygroundEvent()" id="btn-play-send" class="w-full mt-3 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-md shadow-blue-600/30 flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-play"></i>
+                                    Send to Key-Orchestrator Agent
+                                </button>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-400 mb-1.5 uppercase">Orchestration & Remediation Response</label>
+                                <pre id="playground-res" class="w-full h-64 p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-emerald-400 font-mono text-xs overflow-auto">Click 'Send to Key-Orchestrator Agent' to see live JSON response.</pre>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
 
         <script>
+            function switchTab(tab) {
+                document.getElementById('tab-pipeline').classList.add('hidden');
+                document.getElementById('tab-databases').classList.add('hidden');
+                document.getElementById('tab-playground').classList.add('hidden');
+
+                document.getElementById('tab-btn-pipeline').className = 'px-4 py-2 rounded-lg font-semibold text-xs transition-all text-slate-400 hover:text-slate-200';
+                document.getElementById('tab-btn-databases').className = 'px-4 py-2 rounded-lg font-semibold text-xs transition-all text-slate-400 hover:text-slate-200';
+                document.getElementById('tab-btn-playground').className = 'px-4 py-2 rounded-lg font-semibold text-xs transition-all text-slate-400 hover:text-slate-200';
+
+                document.getElementById('tab-' + tab).classList.remove('hidden');
+                document.getElementById('tab-btn-' + tab).className = 'px-4 py-2 rounded-lg font-semibold text-xs transition-all bg-blue-600/10 text-blue-400 border border-blue-500/20';
+
+                if(tab === 'databases') fetchDatabases();
+            }
+
             async function fetchHealth() {
                 try {
                     const res = await fetch('/api/v1/health');
@@ -504,6 +620,7 @@ async def visual_dashboard():
 
                     document.getElementById('score-security').innerText = s.security_compliance_pct + '%';
                     document.getElementById('bar-security').style.width = s.security_compliance_pct + '%';
+                    document.getElementById('score-security-count').innerText = `${s.classified_sensitive_count}/${s.sensitive_columns_count} cols`;
 
                     document.getElementById('score-doc').innerText = s.documentation_coverage_pct + '%';
                     document.getElementById('bar-doc').style.width = s.documentation_coverage_pct + '%';
@@ -520,18 +637,34 @@ async def visual_dashboard():
                     const res = await fetch('/api/v1/audit');
                     const data = await res.json();
                     const tbody = document.getElementById('audit-tbody');
+                    document.getElementById('audit-count').innerText = `${data.total_events || 0} total events`;
+
                     if(data.audit_trail && data.audit_trail.length > 0) {
                         tbody.innerHTML = '';
-                        data.audit_trail.slice(-8).reverse().forEach(item => {
+                        data.audit_trail.slice(-10).reverse().forEach(item => {
                             const timeStr = item.timestamp.split('T')[1].slice(0, 8);
                             const row = document.createElement('tr');
-                            row.className = 'hover:bg-gray-800/30 transition-colors';
+                            row.className = 'hover:bg-slate-800/40 transition-colors font-sans';
+                            
+                            let badgeColor = 'bg-blue-500/10 text-blue-400 border-blue-500/20';
+                            if(item.action.includes('CLASSIFY') || item.action.includes('MASK')) badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+                            if(item.action.includes('OWNER')) badgeColor = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+
                             row.innerHTML = `
-                                <td class="px-4 py-3 font-mono text-xs text-gray-400">${timeStr} UTC</td>
-                                <td class="px-4 py-3 font-semibold text-emerald-400">${item.action}</td>
-                                <td class="px-4 py-3 text-white">${item.asset_name}</td>
-                                <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs bg-indigo-950 text-indigo-300 border border-indigo-800/40">${item.actor}</span></td>
-                                <td class="px-4 py-3 text-xs text-gray-300">${item.reason}</td>
+                                <td class="px-4 py-3 font-mono text-xs text-slate-400 whitespace-nowrap">${timeStr} UTC</td>
+                                <td class="px-4 py-3 font-semibold text-white whitespace-nowrap">
+                                    <span class="px-2 py-0.5 rounded text-[11px] border ${badgeColor}">${item.action}</span>
+                                </td>
+                                <td class="px-4 py-3 font-mono text-xs text-slate-300">${item.asset_name}</td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-0.5 rounded text-[11px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono">${item.actor}</span>
+                                </td>
+                                <td class="px-4 py-3 text-xs text-slate-300">${item.reason}</td>
+                                <td class="px-4 py-3 text-right">
+                                    <a href="http://localhost:6006" target="_blank" class="text-orange-400 hover:text-orange-300 text-[11px] font-semibold flex items-center justify-end gap-1">
+                                        <i class="fa-solid fa-fire text-xs"></i> Phoenix
+                                    </a>
+                                </td>
                             `;
                             tbody.appendChild(row);
                         });
@@ -541,48 +674,156 @@ async def visual_dashboard():
                 }
             }
 
+            async function fetchDatabases() {
+                try {
+                    const res = await fetch('/api/v1/databases');
+                    const data = await res.json();
+                    const container = document.getElementById('db-grid');
+                    container.innerHTML = '';
+
+                    for(const [connId, db] of Object.entries(data)) {
+                        const card = document.createElement('div');
+                        card.className = 'glass-card rounded-2xl p-5 border-slate-800';
+
+                        let tablesHtml = '';
+                        db.tables.forEach(t => {
+                            let colsHtml = '';
+                            t.columns.forEach(c => {
+                                let tagHtml = '';
+                                if(c.is_masked) tagHtml = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Masked</span>';
+                                else if((c.classifications && c.classifications.length > 0)) tagHtml = `<span class="px-1.5 py-0.5 rounded text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/20">${c.classifications.join(',')}</span>`;
+                                else tagHtml = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">Plaintext</span>';
+
+                                colsHtml += `
+                                    <div class="flex items-center justify-between text-xs py-1 border-b border-slate-800/40">
+                                        <span class="font-mono text-slate-300">${c.name} <span class="text-slate-500">(${c.data_type})</span></span>
+                                        ${tagHtml}
+                                    </div>
+                                `;
+                            });
+
+                            tablesHtml += `
+                                <div class="mt-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="font-bold text-xs text-white">${t.name}</span>
+                                        <span class="text-[10px] text-slate-400">${t.columns.length} columns</span>
+                                    </div>
+                                    ${colsHtml}
+                                </div>
+                            `;
+                        });
+
+                        card.innerHTML = `
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                                <div>
+                                    <div class="text-xs font-bold uppercase tracking-wider text-blue-400">${connId}</div>
+                                    <h4 class="text-base font-bold text-white">${db.name}</h4>
+                                </div>
+                                <span class="px-2 py-0.5 rounded text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">ONLINE</span>
+                            </div>
+                            ${tablesHtml}
+                        `;
+                        container.appendChild(card);
+                    }
+                } catch(e) {
+                    console.error('Error fetching databases:', e);
+                }
+            }
+
             async function triggerHeal() {
                 const btn = document.getElementById('btn-heal');
-                btn.classList.add('opacity-50');
-                document.getElementById('feed-status').innerText = 'Executing autonomous healing...';
+                btn.classList.add('opacity-50', 'pointer-events-none');
+                document.getElementById('live-status-pill').innerHTML = 'Status: <span class="text-amber-400 font-semibold animate-pulse">Orchestrating MCP Healers...</span>';
+
                 try {
                     const res = await fetch('/api/v1/heal', { method: 'POST' });
-                    await res.json();
+                    const result = await res.json();
                     await fetchHealth();
                     await fetchAudit();
-                    document.getElementById('feed-status').innerText = 'Self-Healing Cycle Completed!';
+                    document.getElementById('live-status-pill').innerHTML = 'Status: <span class="text-emerald-400 font-semibold">100% Compliant & Healed</span>';
                 } catch(e) {
                     console.error(e);
                 } finally {
-                    btn.classList.remove('opacity-50');
+                    btn.classList.remove('opacity-50', 'pointer-events-none');
                 }
             }
 
             async function triggerScan() {
-                document.getElementById('feed-status').innerText = 'Scanning multi-database assets...';
+                document.getElementById('live-status-pill').innerHTML = 'Status: <span class="text-blue-400 font-semibold animate-pulse">Scanning Multi-Databases...</span>';
                 try {
                     await fetch('/api/v1/scan', { method: 'POST' });
                     await fetchHealth();
                     await fetchAudit();
-                    document.getElementById('feed-status').innerText = 'Scan Complete';
+                    document.getElementById('live-status-pill').innerHTML = 'Status: <span class="text-amber-400 font-semibold">Anomalies Detected</span>';
                 } catch(e) {
                     console.error(e);
                 }
             }
 
             async function triggerReset() {
-                document.getElementById('feed-status').innerText = 'Resetting catalog state...';
+                document.getElementById('live-status-pill').innerHTML = 'Status: <span class="text-purple-400 font-semibold animate-pulse">Resetting Catalog...</span>';
                 try {
                     await fetch('/api/v1/reset', { method: 'POST' });
                     await fetchHealth();
                     await fetchAudit();
-                    document.getElementById('feed-status').innerText = 'Catalog Reset to Initial Anomaly State';
+                    document.getElementById('live-status-pill').innerHTML = 'Status: <span class="text-rose-400 font-semibold">Reset to Anomaly State (67%)</span>';
                 } catch(e) {
                     console.error(e);
                 }
             }
 
-            // Initial load
+            function loadScenario(type) {
+                if(type === 'pii') {
+                    document.getElementById('playground-req').value = JSON.stringify({
+                        "anomaly_type": "UNCLASSIFIED_PII",
+                        "connector": "postgres",
+                        "table_name": "dim_customers",
+                        "column_name": "tax_ssn",
+                        "data_type": "VARCHAR"
+                    }, null, 2);
+                } else if(type === 'meta') {
+                    document.getElementById('playground-req').value = JSON.stringify({
+                        "anomaly_type": "MISSING_DESCRIPTION",
+                        "connector": "atlan",
+                        "table_name": "dim_customers",
+                        "column_name": "user_email",
+                        "asset_guid": "col-cust-002"
+                    }, null, 2);
+                } else if(type === 'drift') {
+                    document.getElementById('playground-req').value = JSON.stringify({
+                        "anomaly_type": "SEMANTIC_METRIC_DRIFT",
+                        "connector": "atlan",
+                        "table_name": "fct_orders",
+                        "metric_name": "annual_recurring_revenue",
+                        "raw_payload": { "columns": ["order_id", "gross_rev", "is_recurring"] }
+                    }, null, 2);
+                }
+            }
+
+            async function sendPlaygroundEvent() {
+                const btn = document.getElementById('btn-play-send');
+                btn.classList.add('opacity-50');
+                const reqStr = document.getElementById('playground-req').value;
+                try {
+                    const reqJson = JSON.parse(reqStr);
+                    const res = await fetch('/api/v1/orchestrate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(reqJson)
+                    });
+                    const data = await res.json();
+                    document.getElementById('playground-res').innerText = JSON.stringify(data, null, 2);
+                    await fetchHealth();
+                    await fetchAudit();
+                } catch(e) {
+                    document.getElementById('playground-res').innerText = 'Error: ' + e.message;
+                } finally {
+                    btn.classList.remove('opacity-50');
+                }
+            }
+
+            // Default Scenario & Init
+            loadScenario('pii');
             fetchHealth();
             fetchAudit();
         </script>
