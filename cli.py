@@ -570,6 +570,52 @@ def phoenix():
     phoenix_tracer.start_official_server(port=6006)
 
 
+@app.command()
+def serve(host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host IP to bind FastAPI server"),
+          port: int = typer.Option(8000, "--port", "-p", help="Port to run FastAPI server")):
+    """Launch FastAPI Web Server & MCP Microservices on http://127.0.0.1:8000."""
+    import uvicorn
+    console.print(Panel.fit(
+        f"[bold cyan][FASTAPI & MCP MICROSERVICES SERVER][/bold cyan]\n"
+        f"Server URL: [bold green]http://{host}:{port}[/bold green]\n"
+        f"Interactive Swagger Docs: [bold yellow]http://{host}:{port}/docs[/bold yellow]\n"
+        f"Key-Orchestrator Route: [bold magenta]POST /api/v1/orchestrate[/bold magenta]\n"
+        f"MCP Discovery Route: [bold cyan]GET /api/v1/mcp/services[/bold cyan]\n"
+        f"Observability Dashboard: [bold green]http://localhost:6006[/bold green]",
+        border_style="cyan"
+    ))
+    uvicorn.run("server:app", host=host, port=port, reload=False)
+
+
+@app.command()
+def mcp():
+    """List all registered MCP Self-Healing Microservices and their exposed tools."""
+    from services.mcp_registry import mcp_registry
+
+    console.print(Panel.fit(
+        "[bold cyan][MCP SELF-HEALING SERVICES DISCOVERY REGISTRY][/bold cyan]\n"
+        "Registered Model Context Protocol (MCP) microservices and tool schemas.",
+        border_style="cyan"
+    ))
+
+    services = mcp_registry.discover_services()
+    table = Table(show_header=True, header_style="bold magenta", expand=True)
+    table.add_column("MCP Service", style="bold cyan", width=28)
+    table.add_column("Category", style="yellow", width=22)
+    table.add_column("Exposed Tools", style="white", width=34)
+    table.add_column("Supported Anomalies", style="green", width=26)
+
+    for s in services:
+        tools_str = ", ".join([t.name for t in s.tools])
+        anomalies_str = ", ".join(s.supported_anomaly_types)
+        table.add_row(
+            s.service_name,
+            s.category,
+            tools_str,
+            anomalies_str
+        )
+
+    console.print(table)
 
 
 if __name__ == "__main__":
