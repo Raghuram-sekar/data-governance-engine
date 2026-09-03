@@ -2,6 +2,7 @@ import time
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Body
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -236,6 +237,361 @@ async def get_audit_trail():
     }
 
 
+@app.get("/", response_class=HTMLResponse, tags=["Visual Dashboard"])
+async def visual_dashboard():
+    """Renders the Interactive Self-Healing Governance Dashboard with live Phoenix observability."""
+    return """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Autonomous Data Governance & MCP Dashboard</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+            body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
+            .glow-blue { box-shadow: 0 0 25px rgba(59, 130, 246, 0.2); }
+            .glow-green { box-shadow: 0 0 25px rgba(16, 185, 129, 0.2); }
+            .glow-purple { box-shadow: 0 0 25px rgba(168, 85, 247, 0.2); }
+        </style>
+    </head>
+    <body class="min-h-screen flex flex-col p-6">
+        <!-- Header -->
+        <header class="max-w-7xl w-full mx-auto flex flex-col md:flex-row items-center justify-between gap-4 pb-6 border-b border-gray-800">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-shield-halved text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Autonomous Data Governance Engine
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700/50">v2.0 MCP</span>
+                    </h1>
+                    <p class="text-xs text-gray-400">Powered by Agno AI • Atlan Active Metadata • FastAPI • Arize Phoenix</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="http://localhost:6006" target="_blank" class="px-4 py-2 rounded-lg bg-orange-950/40 border border-orange-700/50 text-orange-300 hover:bg-orange-900/50 transition-all flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow-orange-500/20">
+                    <i class="fa-solid fa-fire text-orange-400"></i>
+                    Arize Phoenix Traces
+                    <i class="fa-solid fa-arrow-up-right-from-square text-xs opacity-70"></i>
+                </a>
+                <a href="/docs" target="_blank" class="px-4 py-2 rounded-lg bg-gray-800/80 border border-gray-700 text-gray-200 hover:bg-gray-700 transition-all flex items-center gap-2 text-sm font-medium">
+                    <i class="fa-solid fa-code text-blue-400"></i>
+                    Swagger API Docs
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl w-full mx-auto py-8 space-y-8 flex-1">
+            <!-- Controls & Action Banner -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <button onclick="triggerHeal()" id="btn-heal" class="md:col-span-2 p-5 rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white font-semibold text-lg hover:opacity-95 transition-all shadow-xl shadow-emerald-900/30 flex items-center justify-between group">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </div>
+                        <div class="text-left">
+                            <div class="font-bold">Execute Autonomous Self-Healing</div>
+                            <div class="text-xs text-emerald-100 font-normal">Dispatches MCP specialist agents to fix all gaps</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-arrow-right text-emerald-200 group-hover:translate-x-1 transition-transform"></i>
+                </button>
+
+                <button onclick="triggerScan()" class="p-5 rounded-2xl bg-gray-900 border border-gray-800 hover:border-gray-700 text-white font-semibold hover:bg-gray-800/70 transition-all flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-blue-950/60 text-blue-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-radar"></i>
+                    </div>
+                    <div class="text-left">
+                        <div class="font-bold">Scan Catalog</div>
+                        <div class="text-xs text-gray-400 font-normal">Detect current anomalies</div>
+                    </div>
+                </button>
+
+                <button onclick="triggerReset()" class="p-5 rounded-2xl bg-gray-900 border border-gray-800 hover:border-gray-700 text-white font-semibold hover:bg-gray-800/70 transition-all flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-xl bg-purple-950/60 text-purple-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </div>
+                    <div class="text-left">
+                        <div class="font-bold">Reset Demo State</div>
+                        <div class="text-xs text-gray-400 font-normal">Seed 8 fresh anomalies</div>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Health Metric KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+                <div class="p-6 rounded-2xl bg-gray-900/90 border border-gray-800 glow-blue relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Overall Governance Score</span>
+                        <i class="fa-solid fa-chart-pie text-blue-400"></i>
+                    </div>
+                    <div id="score-overall" class="text-4xl font-extrabold text-blue-400 tracking-tight">--%</div>
+                    <div class="w-full bg-gray-800 h-2 rounded-full mt-4 overflow-hidden">
+                        <div id="bar-overall" class="bg-blue-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-gray-900/90 border border-gray-800 glow-green relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Security & PII Masking</span>
+                        <i class="fa-solid fa-lock text-emerald-400"></i>
+                    </div>
+                    <div id="score-security" class="text-4xl font-extrabold text-emerald-400 tracking-tight">--%</div>
+                    <div class="w-full bg-gray-800 h-2 rounded-full mt-4 overflow-hidden">
+                        <div id="bar-security" class="bg-emerald-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-gray-900/90 border border-gray-800 glow-purple relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Documentation Coverage</span>
+                        <i class="fa-solid fa-book text-purple-400"></i>
+                    </div>
+                    <div id="score-doc" class="text-4xl font-extrabold text-purple-400 tracking-tight">--%</div>
+                    <div class="w-full bg-gray-800 h-2 rounded-full mt-4 overflow-hidden">
+                        <div id="bar-doc" class="bg-purple-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="p-6 rounded-2xl bg-gray-900/90 border border-gray-800 relative overflow-hidden">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="text-xs font-medium uppercase tracking-wider text-gray-400">Domain Ownership</span>
+                        <i class="fa-solid fa-user-shield text-amber-400"></i>
+                    </div>
+                    <div id="score-owner" class="text-4xl font-extrabold text-amber-400 tracking-tight">--%</div>
+                    <div class="w-full bg-gray-800 h-2 rounded-full mt-4 overflow-hidden">
+                        <div id="bar-owner" class="bg-amber-500 h-full rounded-full transition-all duration-700" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multi-Database Connectors & MCP Services -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Connectors Panel -->
+                <div class="p-6 rounded-2xl bg-gray-900/80 border border-gray-800">
+                    <h3 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-database text-cyan-400"></i>
+                        Connected Databases (4)
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="p-3 rounded-xl bg-gray-950/60 border border-gray-800/80 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-table-cells text-blue-400"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-white">PostgreSQL Warehouse</div>
+                                    <div class="text-xs text-gray-400">Relational SQL tables</div>
+                                </div>
+                            </div>
+                            <span class="text-xs px-2 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50">Online</span>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-gray-950/60 border border-gray-800/80 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-file-code text-green-400"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-white">MongoDB Document Store</div>
+                                    <div class="text-xs text-gray-400">JSON customer profiles</div>
+                                </div>
+                            </div>
+                            <span class="text-xs px-2 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50">Online</span>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-gray-950/60 border border-gray-800/80 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-cubes text-purple-400"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-white">ChromaDB Vector Store</div>
+                                    <div class="text-xs text-gray-400">RAG knowledge embeddings</div>
+                                </div>
+                            </div>
+                            <span class="text-xs px-2 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50">Online</span>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-gray-950/60 border border-gray-800/80 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-sitemap text-amber-400"></i>
+                                <div>
+                                    <div class="text-sm font-medium text-white">Atlan Active Catalog</div>
+                                    <div class="text-xs text-gray-400">Unified metadata & lineage</div>
+                                </div>
+                            </div>
+                            <span class="text-xs px-2 py-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-800/50">Online</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MCP Self-Healing Services Panel -->
+                <div class="p-6 rounded-2xl bg-gray-900/80 border border-gray-800 lg:col-span-2">
+                    <h3 class="text-base font-semibold text-white mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-microchip text-indigo-400"></i>
+                        Discovered MCP Self-Healing Microservices
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="p-4 rounded-xl bg-gray-950/60 border border-gray-800 flex flex-col justify-between">
+                            <div>
+                                <div class="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1">mcp-pii-service</div>
+                                <div class="text-sm font-medium text-white">PII & PCI Healer</div>
+                                <p class="text-xs text-gray-400 mt-2">Regex sensitivity classification & dynamic cross-DB masking.</p>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-4 border-t border-gray-800/80 pt-2">3 Tools Exposed</div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-gray-950/60 border border-gray-800 flex flex-col justify-between">
+                            <div>
+                                <div class="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-1">mcp-metadata-service</div>
+                                <div class="text-sm font-medium text-white">Metadata Enricher</div>
+                                <p class="text-xs text-gray-400 mt-2">Business documentation curation & glossary term association.</p>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-4 border-t border-gray-800/80 pt-2">3 Tools Exposed</div>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-gray-950/60 border border-gray-800 flex flex-col justify-between">
+                            <div>
+                                <div class="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">mcp-drift-service</div>
+                                <div class="text-sm font-medium text-white">Semantic Drift Healer</div>
+                                <p class="text-xs text-gray-400 mt-2">KPI schema drift diagnostics & formula alias remapping.</p>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-4 border-t border-gray-800/80 pt-2">3 Tools Exposed</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Actions & Audit Log Feed -->
+            <div class="p-6 rounded-2xl bg-gray-900/80 border border-gray-800">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-emerald-400"></i>
+                        Autonomous Remediation & Audit Feed
+                    </h3>
+                    <span id="feed-status" class="text-xs text-gray-400">Ready</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-gray-300">
+                        <thead class="text-xs uppercase bg-gray-950/80 text-gray-400 border-b border-gray-800">
+                            <tr>
+                                <th class="px-4 py-3">Timestamp</th>
+                                <th class="px-4 py-3">Action</th>
+                                <th class="px-4 py-3">Asset</th>
+                                <th class="px-4 py-3">Actor / MCP Service</th>
+                                <th class="px-4 py-3">Reason / Remediation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="audit-tbody" class="divide-y divide-gray-800/50">
+                            <tr>
+                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">Click 'Scan Catalog' or 'Execute Autonomous Self-Healing' to view live actions.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+
+        <script>
+            async function fetchHealth() {
+                try {
+                    const res = await fetch('/api/v1/health');
+                    const data = await res.json();
+                    const s = data.governance_scores;
+                    document.getElementById('score-overall').innerText = s.overall_score + '%';
+                    document.getElementById('bar-overall').style.width = s.overall_score + '%';
+
+                    document.getElementById('score-security').innerText = s.security_compliance_pct + '%';
+                    document.getElementById('bar-security').style.width = s.security_compliance_pct + '%';
+
+                    document.getElementById('score-doc').innerText = s.documentation_coverage_pct + '%';
+                    document.getElementById('bar-doc').style.width = s.documentation_coverage_pct + '%';
+
+                    document.getElementById('score-owner').innerText = s.ownership_coverage_pct + '%';
+                    document.getElementById('bar-owner').style.width = s.ownership_coverage_pct + '%';
+                } catch(e) {
+                    console.error('Error fetching health:', e);
+                }
+            }
+
+            async function fetchAudit() {
+                try {
+                    const res = await fetch('/api/v1/audit');
+                    const data = await res.json();
+                    const tbody = document.getElementById('audit-tbody');
+                    if(data.audit_trail && data.audit_trail.length > 0) {
+                        tbody.innerHTML = '';
+                        data.audit_trail.slice(-8).reverse().forEach(item => {
+                            const timeStr = item.timestamp.split('T')[1].slice(0, 8);
+                            const row = document.createElement('tr');
+                            row.className = 'hover:bg-gray-800/30 transition-colors';
+                            row.innerHTML = `
+                                <td class="px-4 py-3 font-mono text-xs text-gray-400">${timeStr} UTC</td>
+                                <td class="px-4 py-3 font-semibold text-emerald-400">${item.action}</td>
+                                <td class="px-4 py-3 text-white">${item.asset_name}</td>
+                                <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-xs bg-indigo-950 text-indigo-300 border border-indigo-800/40">${item.actor}</span></td>
+                                <td class="px-4 py-3 text-xs text-gray-300">${item.reason}</td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    }
+                } catch(e) {
+                    console.error('Error fetching audit:', e);
+                }
+            }
+
+            async function triggerHeal() {
+                const btn = document.getElementById('btn-heal');
+                btn.classList.add('opacity-50');
+                document.getElementById('feed-status').innerText = 'Executing autonomous healing...';
+                try {
+                    const res = await fetch('/api/v1/heal', { method: 'POST' });
+                    await res.json();
+                    await fetchHealth();
+                    await fetchAudit();
+                    document.getElementById('feed-status').innerText = 'Self-Healing Cycle Completed!';
+                } catch(e) {
+                    console.error(e);
+                } finally {
+                    btn.classList.remove('opacity-50');
+                }
+            }
+
+            async function triggerScan() {
+                document.getElementById('feed-status').innerText = 'Scanning multi-database assets...';
+                try {
+                    await fetch('/api/v1/scan', { method: 'POST' });
+                    await fetchHealth();
+                    await fetchAudit();
+                    document.getElementById('feed-status').innerText = 'Scan Complete';
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+
+            async function triggerReset() {
+                document.getElementById('feed-status').innerText = 'Resetting catalog state...';
+                try {
+                    await fetch('/api/v1/reset', { method: 'POST' });
+                    await fetchHealth();
+                    await fetchAudit();
+                    document.getElementById('feed-status').innerText = 'Catalog Reset to Initial Anomaly State';
+                } catch(e) {
+                    console.error(e);
+                }
+            }
+
+            // Initial load
+            fetchHealth();
+            fetchAudit();
+        </script>
+    </body>
+    </html>
+    """
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+
