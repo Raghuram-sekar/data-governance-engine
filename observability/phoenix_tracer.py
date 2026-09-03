@@ -138,9 +138,12 @@ class PhoenixObservability:
 
     def start_official_server(self, port: int = 6006):
         """Starts the Official Arize Phoenix Web Server."""
+        env = os.environ.copy()
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
         cmd = [sys.executable, "-m", "phoenix.server.main", "serve", "--port", str(port)]
         try:
-            subprocess.run(cmd)
+            subprocess.run(cmd, env=env)
         except KeyboardInterrupt:
             pass
 
