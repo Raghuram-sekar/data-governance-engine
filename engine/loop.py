@@ -7,6 +7,7 @@ from atlan_integration.client import atlan_client
 from connectors import connector_registry
 from observability.phoenix_tracer import phoenix_tracer
 from semantics.engine import semantic_engine
+from services.mcp_registry import mcp_registry
 
 
 class SelfHealingLoop:
@@ -89,51 +90,34 @@ class SelfHealingLoop:
         tables = atlan_client.list_tables()
 
         for anom in anomalies:
+            # Dynamically resolve appropriate MCP Self-Healing Microservice
+            mcp_service = mcp_registry.route_for_anomaly(anom.anomaly_type.value)
+            
             # 1. Non-Atlan Multi-Database Healing (Postgres, MongoDB, ChromaDB)
             if anom.asset_guid.startswith(("postgres:", "mongodb:", "chroma:")):
                 parts = anom.asset_guid.split(":")
                 conn_id = parts[0]
                 tbl_name = parts[1] if len(parts) > 1 else ""
                 col_name = parts[2] if len(parts) > 2 else ""
-                conn = connector_registry.get(conn_id)
 
-                if conn and tbl_name and col_name:
-                    conn.apply_data_masking(tbl_name, col_name)
-                    res = {
-                        "status": "HEALED",
-                        "action": f"DYNAMIC_MASKING_ENFORCED_{conn_id.upper()}",
-                        "connector": conn_id,
-                        "table": tbl_name,
-                        "column": col_name,
-                        "result": {"status": "HEALED", "masking": True}
-                    }
+                if mcp_service and conn_id and tbl_name and col_name:
+                    mcp_res = mcp_service.call_tool("enforce_database_masking", {
+                        "connector_id": conn_id,
+                        "table_name": tbl_name,
+                        "column_name": col_name
+                    })
                     healing_results.append({
                         "anomaly": anom.model_dump(),
-                        "resolution": res
+                        "resolution": {
+                            "status": mcp_res.status,
+                            "service": mcp_service.metadata.service_name,
+                            "action": f"DYNAMIC_MASKING_ENFORCED_{conn_id.upper()}",
+                            "result": mcp_res.result
+                        }
                     })
-                    # Log trace to Phoenix
-                    phoenix_tracer.log_agent_trace(
-                        agent_name="Agno:PIISecurityHealer",
-                        task=f"Enforce Dynamic Masking on {conn_id.upper()}.{tbl_name}.{col_name}",
-                        input_data={
-                            "connector": conn_id,
-                            "table": tbl_name,
-                            "column": col_name,
-                            "anomaly_detected": "UNCLASSIFIED_PII",
-                            "risk_assessment": f"Raw sensitive field exposed in {conn_id.upper()} store without masking"
-                        },
-                        output_data={
-                            "status": "HEALED",
-                            "classification_applied": "PII",
-                            "masking_enforced": True,
-                            "action": f"Enforced dynamic column masking across {conn_id.upper()} connector"
-                        },
-                        tools_called=["evaluate_column_sensitivity", "apply_data_masking"],
-                        latency_ms=95.0
-                    )
                 time.sleep(0.05)
 
-            # 2. Atlan Catalog Healing
+            # 2. Atlan Catalog Healing via MCP & Orchestrator
             else:
                 tbl_context = {}
                 if anom.asset_type.value == "Table":
